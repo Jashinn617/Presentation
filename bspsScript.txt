@@ -1,0 +1,281 @@
+▼Sea PlayerBullet
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PlayerBullet : MonoBehaviour
+{
+    // 左右
+    public bool lr;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        // SupisNormalの取得
+        GameObject player = GameObject.Find("SupisNormal");
+        lr = player.GetComponent<SpriteRenderer>().flipX;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+    }
+
+    void FixedUpdate()
+    {
+
+        if (lr)
+        {
+            this.GetComponent<Rigidbody2D>().velocity = new Vector2(-8, 0);
+            transform.localScale = new Vector3(-0.3f, 0.3f, 0.3f);
+        }
+        else
+        {
+            this.GetComponent<Rigidbody2D>().velocity = new Vector2(8, 0);
+            transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+        }
+    }
+
+    // カメラ外に出たら消す
+    public void OnBecameInvisible()
+    {
+        Destroy(this.gameObject);
+    }
+
+}
+
+
+
+▼ SeaPlay
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+
+public class SeaPlayer : MonoBehaviour
+{
+    private float speed = 0.005f;
+    public float bulletSpeed = 5.0f;
+
+    private SpriteRenderer renderer;
+
+    // 弾
+    public GameObject Minipis;
+    // 弾の数
+    public int bulletNum = 30;
+    // UIの残団管理
+    GameObject bulletManager;
+
+    // プレイヤーのHP
+    public int playerHp = 5;
+
+    void Start()
+    {
+        renderer = GetComponent<SpriteRenderer>();
+        this.bulletManager = GameObject.Find("RemainingBulletsManagement");
+    }
+
+    void Update()
+    {
+        // 四方向移動
+        Vector2 position = transform.position;
+
+        if (Input.GetKey(KeyCode.A))
+        {
+            position.x -= speed;
+            renderer.flipX = true;
+        }
+        else if (Input.GetKey(KeyCode.D))
+        {
+            position.x += speed;
+            renderer.flipX = false;
+        }
+        else if (Input.GetKey(KeyCode.W))
+        {
+            position.y += speed;
+        }
+        else if (Input.GetKey(KeyCode.S))
+        {
+            position.y -= speed;
+        }
+
+        transform.position = position;
+
+        // 弾発射呼び出し
+        if (Input.GetKeyDown(KeyCode.Return) && (bulletNum > 0))
+        {
+            Shoot();
+
+            bulletNum--;
+
+            this.bulletManager.GetComponent<BulletNum>().Firing();
+        }
+
+        // 弾発射
+        void Shoot()
+        {
+            GameObject playerShot = Instantiate(Minipis) as GameObject;
+            playerShot.transform.position = this.transform.position;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            GameObject hpDelete = GameObject.Find("HpDelete");
+            hpDelete.GetComponent<Hp>().DeleteHp();
+            playerHp--;
+        }
+
+        if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            GameObject hpDelete = GameObject.Find("HpDelete");
+            hpDelete.GetComponent<Hp>().RecoveryHp();
+        }
+
+        if (playerHp <= 0)
+        {
+            SceneManager.LoadScene("GameOverScene");
+        }
+
+    }
+}
+
+
+
+▼Sky Player
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class Player : MonoBehaviour
+{
+    public int playerHP = 5;             // プレイヤーのHP
+    public float speedX = 5.0f;          // プレイヤーのX軸方向の移動速度
+    public float speedY = 3.0f;          // プレイヤーのY軸方向の移動速度
+    private float moveX;                 // X軸の移動方向
+    private float moveY;                 // Y軸の移動方向
+    private Vector2 moveDirection;       // 移動方向
+    private Vector3 startPosition;       // スタート位置
+    private Rigidbody2D rb2D;
+
+    public GameObject bulletPrefab;      // 弾のPrefab
+    public float bulletSpeed = 10.0f;    // 弾の速度
+    public Transform firePoint;          // 弾を発射する位置
+
+    void Start()
+    {
+        rb2D = GetComponent<Rigidbody2D>();     // Rigidbody2Dのコンポーネントを取得
+        startPosition = transform.position;     // 初期位置を保存
+    }
+
+    void Update()
+    {
+        moveX = 0;
+        moveY = 0;
+
+        if (Input.GetKey(KeyCode.A))    // 左方向
+        {
+            moveX = -speedX;
+        }
+        if (Input.GetKey(KeyCode.D))    // 右方向
+        {
+            moveX = speedX;
+        }
+        if (Input.GetKey(KeyCode.W))    // 上方向
+        {
+            moveY = speedY;
+        }
+        if (Input.GetKey(KeyCode.S))    // 下方向
+        {
+            moveY = -speedY;
+        }
+
+        moveDirection = new Vector2(moveX, moveY).normalized;
+
+        // 弾を発射
+        if (Input.GetKeyDown(KeyCode.Return))
+        {
+            Shoot();
+        }
+    }
+
+    // Rigidbodyの速度を更新
+    void FixedUpdate()
+    {
+        rb2D.velocity = moveDirection * new Vector2(speedX, speedY);
+    }
+
+    // 弾を発射する
+    void Shoot()
+    {
+        GameObject bullet = Instantiate(bulletPrefab, firePoint.position, Quaternion.identity);
+        Rigidbody2D bulletRb = bullet.GetComponent<Rigidbody2D>();
+        bulletRb.velocity = Vector2.right * bulletSpeed;  // 弾を右方向に発射
+    }
+
+
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        // Enemyまたはギミックに当たったときの処理
+        if (collision.CompareTag("Enemy") || collision.CompareTag("gimmick"))
+        {
+            playerHP--;   // HPを1減らす
+
+            // HPが0になったらゲームオーバー
+            if (playerHP <= 0)
+            {
+                // コルーチンの起動
+                StartCoroutine(GameOverCoroutine());
+
+            }
+        }
+
+        // 壁に挟まれた時の処理
+        if (collision.CompareTag("Wall"))
+        {
+            playerHP--;    // HPを1減らす
+            if (playerHP <= 0)
+            {
+                // コルーチンの起動
+                StartCoroutine(GameOverCoroutine());
+            }
+            else
+            {
+                // ステージの最初から再開
+                transform.position = startPosition;
+            }
+        }
+
+    }
+
+    // 敵の弾に当たった際の処理
+    public void TakeDamage(int damage)
+    {
+        playerHP -= damage;
+
+        if (playerHP <= 0)
+        {
+            // コルーチンの起動
+            StartCoroutine(GameOverCoroutine());
+        }
+    }
+
+
+    // コルーチン本体
+    private IEnumerator GameOverCoroutine()
+    {
+        // 2秒間待つ
+        yield return new WaitForSeconds(2);
+
+        // ゲームオーバー
+        SceneManager.LoadScene("GameOverScene");
+    }
+}
+
+
+
+
+HP→監督スクリプト
